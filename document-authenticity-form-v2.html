@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Document Authenticity Form</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --header-blue:#8fa4d4;
+    --yes-blue:#d7dded;
+    --no-orange:#f0cba7;
+    --grey-band:#d9d9d9;
+    --border:#000;
+    --font: Arial, Helvetica, sans-serif;
+    --font-size: 14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    font-family: var(--font);
+    font-size: var(--font-size);
+    background:#eef0f3;
+    margin:0;
+    padding:30px 15px;
+    color:#111;
+  }
+  .toolbar{
+    max-width:820px;
+    margin:0 auto 18px auto;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .toolbar h1{
+    font-size:16px;
+    margin:0;
+    color:#333;
+    font-family: var(--font);
+  }
+  .btn{
+    border:none;
+    padding:8px 14px;
+    border-radius:6px;
+    font-size:13px;
+    cursor:pointer;
+    font-weight:600;
+    font-family: var(--font);
+  }
+  .btn-primary{background:#2c5aa0;color:#fff;}
+  .btn-primary:hover{background:#1f4680;}
+  .btn-secondary{background:#e2e6ee;color:#2c5aa0;}
+  .btn-secondary:hover{background:#cfd6e6;}
+  .btn-danger{background:#e05353;color:#fff;padding:3px 8px;font-size:11px;}
+  .btn-danger:hover{background:#c33d3d;}
+  .btn-row{display:flex;gap:8px;}
+
+  #capture-wrapper{
+    max-width:820px;
+    margin:0 auto;
+  }
+
+  .doc-table{
+    width:100%;
+    border-collapse:collapse;
+    background:#fff;
+    border:1.5px solid var(--border);
+    table-layout:auto;
+    font-family: var(--font);
+    font-size: var(--font-size);
+  }
+  .doc-table td, .doc-table th{
+    border:1.5px solid var(--border);
+    padding:8px 12px;
+    vertical-align:middle;
+    font-family: var(--font);
+    font-size: var(--font-size);
+    font-weight:normal;
+    color:#111;
+  }
+  .header-row td{
+    background:var(--header-blue);
+    font-weight:600;
+  }
+  .plain-row td{
+    white-space:normal;
+  }
+  .row-label{
+    white-space:nowrap;
+    margin-right:14px;
+  }
+  .editable-inline{
+    display:inline-block;
+    min-width:16px;
+    outline:none;
+    white-space:pre-wrap;
+    word-break:break-word;
+    vertical-align:baseline;
+  }
+  .editable-inline:focus{
+    background:#fffbe0;
+  }
+  .question-row td.qtext{
+    width:auto;
+  }
+  .yes-col{background:var(--yes-blue); text-align:center; width:90px;}
+  .no-col{background:var(--no-orange); text-align:center; width:90px;}
+
+  .editable{
+    width:100%;
+    min-height:1.3em;
+    outline:none;
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
+  .editable:focus{
+    background:#fffbe0;
+  }
+
+  .mark-cell{
+    text-align:center;
+    cursor:pointer;
+    font-size:18px;
+    font-weight:700;
+    color:#111;
+    user-select:none;
+    height:1.3em;
+  }
+  .mark-cell:hover{background:rgba(0,0,0,0.06);}
+
+  .item-controls-cell{
+    text-align:center;
+    width:1%;
+    border:none !important;
+    white-space:nowrap;
+  }
+
+  .grey-band td{
+    background:var(--grey-band);
+    font-weight:600;
+  }
+
+  .add-item-bar{
+    max-width:820px;
+    margin:14px auto 0 auto;
+  }
+
+  @media print{
+    .toolbar, .no-print{display:none !important;}
+    body{background:#fff;padding:0;}
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <h1>Document Authenticity — Verification Form</h1>
+  <div class="btn-row">
+    <button class="btn btn-secondary" id="addRowBtn">+ Thêm dòng vấn đề</button>
+    <button class="btn btn-primary" id="exportPdfBtn">Xuất PDF</button>
+  </div>
+</div>
+
+<div id="capture-wrapper">
+  <table class="doc-table" id="docTable">
+    <tr class="header-row">
+      <td colspan="4">Document Authenticity</td>
+    </tr>
+    <tr class="plain-row">
+      <td colspan="4"><span class="row-label">Candidate Name:</span><span class="editable-inline" contenteditable="true" id="candidateName"></span></td>
+    </tr>
+    <tr class="question-row">
+      <td class="qtext">Is the document submitted by the candidate authentic?<br>(Place an x in the appropriate box)</td>
+      <td class="yes-col">Yes</td>
+      <td class="no-col">No</td>
+      <td class="item-controls-cell no-print"></td>
+    </tr>
+
+    <tbody id="itemsBody">
+      <!-- dynamic item rows injected here -->
+    </tbody>
+
+    <tr class="grey-band">
+      <td colspan="4">Please enter the details of the authorized individual who provided the verification</td>
+    </tr>
+    <tr class="plain-row">
+      <td colspan="4"><span class="row-label">Name:</span><span class="editable-inline" contenteditable="true" id="verifierName"></span></td>
+    </tr>
+    <tr class="plain-row">
+      <td colspan="4"><span class="row-label">Title:</span><span class="editable-inline" contenteditable="true" id="verifierTitle"></span></td>
+    </tr>
+    <tr class="plain-row">
+      <td colspan="4"><span class="row-label">Email Address:</span><span class="editable-inline" contenteditable="true" id="verifierEmail"></span></td>
+    </tr>
+  </table>
+</div>
+
+<script>
+let itemCount = 0;
+
+function createItemRow(){
+  itemCount++;
+  const id = 'item_' + itemCount;
+  const tr = document.createElement('tr');
+  tr.className = 'item-row';
+  tr.dataset.id = id;
+  tr.innerHTML = `
+    <td class="qtext"><div class="editable" contenteditable="true"></div></td>
+    <td class="yes-col mark-cell" data-mark="yes"></td>
+    <td class="no-col mark-cell" data-mark="no"></td>
+    <td class="item-controls-cell no-print"><button class="btn-danger" onclick="removeRow(this)">X</button></td>
+  `;
+  return tr;
+}
+
+function attachMarkHandlers(tr){
+  const marks = tr.querySelectorAll('.mark-cell');
+  marks.forEach(cell => {
+    cell.addEventListener('click', () => {
+      const isYes = cell.dataset.mark === 'yes';
+      const yesCell = tr.querySelector('.yes-col.mark-cell');
+      const noCell = tr.querySelector('.no-col.mark-cell');
+      if(isYes){
+        yesCell.textContent = yesCell.textContent === 'X' ? '' : 'X';
+        noCell.textContent = '';
+      } else {
+        noCell.textContent = noCell.textContent === 'X' ? '' : 'X';
+        yesCell.textContent = '';
+      }
+    });
+  });
+}
+
+function addRow(){
+  const tbody = document.getElementById('itemsBody');
+  const tr = createItemRow();
+  tbody.appendChild(tr);
+  attachMarkHandlers(tr);
+}
+
+function removeRow(btn){
+  const tr = btn.closest('tr');
+  tr.remove();
+}
+
+document.getElementById('addRowBtn').addEventListener('click', addRow);
+
+// seed with the two example rows from the reference form
+addRow();
+addRow();
+document.querySelectorAll('#itemsBody .item-row')[0].querySelector('.qtext .editable').textContent = 'Degree Certificate/Diploma';
+document.querySelectorAll('#itemsBody .item-row')[1].querySelector('.qtext .editable').textContent = 'Transcript';
+
+document.getElementById('exportPdfBtn').addEventListener('click', async () => {
+  const wrapper = document.getElementById('capture-wrapper');
+  const controlCells = wrapper.querySelectorAll('.item-controls-cell');
+  controlCells.forEach(c => c.style.display = 'none');
+
+  const editables = wrapper.querySelectorAll('.editable, .editable-inline');
+  editables.forEach(e => e.style.background = 'transparent');
+
+  const canvas = await html2canvas(wrapper, {
+    scale: 3,
+    backgroundColor: '#ffffff',
+    useCORS: true
+  });
+
+  controlCells.forEach(c => c.style.display = '');
+
+  const imgData = canvas.toDataURL('image/png');
+  const { jsPDF } = window.jspdf;
+
+  const imgWidthPx = canvas.width;
+  const imgHeightPx = canvas.height;
+  const pdfWidth = 1320;
+  const pdfHeight = pdfWidth * (imgHeightPx / imgWidthPx);
+
+  const pdf = new jsPDF({
+    orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
+    unit: 'pt',
+    format: [pdfWidth, pdfHeight]
+  });
+
+  pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+
+  const candidateName = document.getElementById('candidateName').textContent.trim() || 'candidate';
+  const safeName = candidateName.replace(/[^a-zA-Z0-9_\-]+/g, '_') || 'candidate';
+  pdf.save(`Document_Authenticity_${safeName}.pdf`);
+});
+</script>
+
+</body>
+</html>
