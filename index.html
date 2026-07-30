@@ -253,42 +253,83 @@ addRow();
 document.querySelectorAll('#itemsBody .item-row')[0].querySelector('.qtext .editable').textContent = 'Degree Certificate/Diploma';
 document.querySelectorAll('#itemsBody .item-row')[1].querySelector('.qtext .editable').textContent = 'Transcript';
 
-document.getElementById('exportPdfBtn').addEventListener('click', async () => {
+function isMobileDevice(){
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+async function exportToPdf(){
+  const btn = document.getElementById('exportPdfBtn');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Đang xử lý...';
+
   const wrapper = document.getElementById('capture-wrapper');
   const controlCells = wrapper.querySelectorAll('.item-controls-cell');
-  controlCells.forEach(c => c.style.display = 'none');
-
   const editables = wrapper.querySelectorAll('.editable, .editable-inline');
-  editables.forEach(e => e.style.background = 'transparent');
 
-  const canvas = await html2canvas(wrapper, {
-    scale: 3,
-    backgroundColor: '#ffffff',
-    useCORS: true
-  });
+  try{
+    // blur any focused field so mobile keyboards/carets don't get captured
+    if(document.activeElement) document.activeElement.blur();
 
-  controlCells.forEach(c => c.style.display = '');
+    controlCells.forEach(c => c.style.display = 'none');
+    editables.forEach(e => e.style.background = 'transparent');
 
-  const imgData = canvas.toDataURL('image/png');
-  const { jsPDF } = window.jspdf;
+    // lower scale on mobile to avoid running out of memory / silent crashes
+    const scale = isMobileDevice() ? 2 : 3;
 
-  const imgWidthPx = canvas.width;
-  const imgHeightPx = canvas.height;
-  const pdfWidth = 1320;
-  const pdfHeight = pdfWidth * (imgHeightPx / imgWidthPx);
+    const canvas = await html2canvas(wrapper, {
+      scale: scale,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      allowTaint: true,
+      logging: false
+    });
 
-  const pdf = new jsPDF({
-    orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
-    unit: 'pt',
-    format: [pdfWidth, pdfHeight]
-  });
+    controlCells.forEach(c => c.style.display = '');
 
-  pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
 
-  const candidateName = document.getElementById('candidateName').textContent.trim() || 'candidate';
-  const safeName = candidateName.replace(/[^a-zA-Z0-9_\-]+/g, '_') || 'candidate';
-  pdf.save(`Document_Authenticity_${safeName}.pdf`);
-});
+    const imgWidthPx = canvas.width;
+    const imgHeightPx = canvas.height;
+    const pdfWidth = 1320;
+    const pdfHeight = pdfWidth * (imgHeightPx / imgWidthPx);
+
+    const pdf = new jsPDF({
+      orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
+      unit: 'pt',
+      format: [pdfWidth, pdfHeight]
+    });
+
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+
+    const candidateName = document.getElementById('candidateName').textContent.trim() || 'candidate';
+    const safeName = candidateName.replace(/[^a-zA-Z0-9_\-]+/g, '_') || 'candidate';
+    const fileName = `Document_Authenticity_${safeName}.pdf`;
+
+    if(isMobileDevice()){
+      // Direct "download" attribute is unreliable on iOS Safari and many
+      // Android in-app browsers. Opening the PDF in a new tab lets the
+      // user use the native Share / Save / Print button instead.
+      const blobUrl = pdf.output('bloburl');
+      const newTab = window.open(blobUrl, '_blank');
+      if(!newTab){
+        alert('Trình duyệt đã chặn cửa sổ mới. Vui lòng cho phép popup rồi bấm "Xuất PDF" lại, hoặc thử mở bằng Chrome/Safari (không phải trình duyệt trong app Zalo/Facebook).');
+      }
+    } else {
+      pdf.save(fileName);
+    }
+  } catch(err){
+    console.error('Export PDF error:', err);
+    alert('Xuất PDF thất bại: ' + (err && err.message ? err.message : err));
+  } finally {
+    controlCells.forEach(c => c.style.display = '');
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+
+document.getElementById('exportPdfBtn').addEventListener('click', exportToPdf);
 </script>
 
 </body>
